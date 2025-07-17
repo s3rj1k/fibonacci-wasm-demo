@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>Go WASM Fibonacci Calculator</title>
+
+        <!-- Bootstrap CSS -->
+        <link
+            href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/css/bootstrap.min.css"
+            rel="stylesheet"
+            integrity="sha384-LN+7fdVzj6u52u30Kp6M/trliBMCMKTyK833zpbD+pXdCLuTusPj697FH4R/5mcr"
+            crossorigin="anonymous"
+        />
+        <!-- Font Awesome -->
+        <link
+            href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
+            rel="stylesheet"
+        />
+        <!-- Custom CSS -->
+        <link href="style.css" rel="stylesheet" />
+    </head>
+    <body>
+        <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+            <div class="container">
+                <span class="navbar-brand mb-0 h1">
+                    <i class="fas fa-calculator me-2"></i>
+                    Fibonacci WASM Calculator
+                </span>
+                <span class="navbar-text">
+                    <small>Powered by Go WebAssembly</small>
+                </span>
+            </div>
+        </nav>
+
+        <div class="container mt-4">
+            <div class="row justify-content-center">
+                <div class="col-lg-8">
+                    <div class="card shadow">
+                        <div class="card-header bg-light">
+                            <h5 class="card-title mb-0">
+                                <i class="fas fa-chart-line me-2"></i>
+                                Fibonacci Sequence Calculator
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <p class="card-text">
+                                Enter a number to get the first
+                                <strong>n</strong> Fibonacci numbers starting
+                                from 0.
+                            </p>
+
+                            <form id="fibonacciForm">
+                                <div class="row g-3 align-items-end">
+                                    <div class="col-auto">
+                                        <label
+                                            for="numberInput"
+                                            class="form-label"
+                                            >Number (n)</label
+                                        >
+                                        <input
+                                            type="number"
+                                            id="numberInput"
+                                            class="form-control"
+                                            placeholder="Enter n (e.g., 10)"
+                                            min="0"
+                                            style="width: 180px"
+                                            required
+                                        />
+                                    </div>
+                                    <div class="col-auto">
+                                        <button
+                                            type="submit"
+                                            id="calculateBtn"
+                                            class="btn btn-primary"
+                                        >
+                                            <i class="fas fa-play me-1"></i>
+                                            Calculate
+                                        </button>
+                                    </div>
+                                    <div class="col-auto">
+                                        <button
+                                            type="button"
+                                            id="clearBtn"
+                                            class="btn btn-outline-secondary"
+                                        >
+                                            <i class="fas fa-times me-1"></i>
+                                            Clear
+                                        </button>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    <div id="result" class="mt-4"></div>
+
+                    <div class="card mt-4">
+                        <div class="card-header">
+                            <h6 class="card-title mb-0">
+                                <i class="fas fa-info-circle me-2"></i>
+                                Examples
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <h6>Valid Examples:</h6>
+                                    <ul class="list-unstyled">
+                                        <li>
+                                            <span class="badge bg-primary me-2"
+                                                >n = 5</span
+                                            >
+                                            → [0, 1, 1, 2, 3]
+                                        </li>
+                                        <li>
+                                            <span class="badge bg-primary me-2"
+                                                >n = 8</span
+                                            >
+                                            → [0, 1, 1, 2, 3, 5, 8, 13]
+                                        </li>
+                                        <li>
+                                            <span class="badge bg-primary me-2"
+                                                >n = 0</span
+                                            >
+                                            → []
+                                        </li>
+                                        <li>
+                                            <span class="badge bg-primary me-2"
+                                                >n = 1</span
+                                            >
+                                            → [0]
+                                        </li>
+                                    </ul>
+                                </div>
+                                <div class="col-md-6">
+                                    <h6>Error Cases:</h6>
+                                    <ul class="list-unstyled">
+                                        <li>
+                                            <span class="badge bg-danger me-2"
+                                                >n < 0</span
+                                            >
+                                            Negative numbers
+                                        </li>
+                                        <li>
+                                            <span class="badge bg-warning me-2"
+                                                >text</span
+                                            >
+                                            Non-numeric input
+                                        </li>
+                                        <li>
+                                            <span class="badge bg-warning me-2"
+                                                >empty</span
+                                            >
+                                            No input provided
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bootstrap JS -->
+        <script
+            src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.bundle.min.js"
+            integrity="sha384-ndDqU0Gzau9qJ1lfW4pNLlhNTkCfHzAVBReH9diLvGRem5+R9g2FzA8ZGN954O5Q"
+            crossorigin="anonymous"
+        ></script>
+        <!-- Main App -->
+        <script src="app.js"></script>
+    </body>
+</html>
