@@ -93,11 +93,17 @@ func HandleRequest(req Request) Response {
 	}
 
 	startTime := time.Now()
+	fibSequence := GenerateFibonacci(n)
+
+	stringSequence := make([]string, len(fibSequence))
+	for i, bigInt := range fibSequence {
+		stringSequence[i] = bigInt.String()
+	}
 
 	return Response{
 		Status: http.StatusOK,
 		Body: map[string]any{
-			"sequence":    GenerateFibonacci(n),
+			"sequence":    stringSequence,
 			"count":       n,
 			"duration_ms": time.Since(startTime).Milliseconds(),
 		},

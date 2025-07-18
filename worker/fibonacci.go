@@ -1,19 +1,25 @@
 package main
 
-func GenerateFibonacci(n int) []int {
+import (
+	"math/big"
+)
+
+func GenerateFibonacci(n int) []*big.Int {
 	if n <= 0 {
-		return []int{}
+		return []*big.Int{}
 	}
 
 	if n == 1 {
-		return []int{0}
+		return []*big.Int{big.NewInt(0)}
 	}
 
-	sequence := make([]int, n)
-	sequence[0], sequence[1] = 0, 1
+	sequence := make([]*big.Int, n)
+	sequence[0] = big.NewInt(0)
+	sequence[1] = big.NewInt(1)
 
 	for i := 2; i < n; i++ {
-		sequence[i] = sequence[i-1] + sequence[i-2]
+		sequence[i] = big.NewInt(0)
+		sequence[i].Add(sequence[i-1], sequence[i-2])
 	}
 
 	return sequence

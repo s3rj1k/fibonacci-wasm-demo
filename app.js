@@ -218,7 +218,7 @@ class FibonacciApp {
                         <div class="col-md-6">
                             <small class="text-muted">
                                 <i class="fas fa-info-circle me-1"></i>
-                                Calculated using Go WebAssembly in WebWorker
+                                Calculated using Go WebAssembly with arbitrary precision
                             </small>
                         </div>
                         <div class="col-md-6 text-end">
