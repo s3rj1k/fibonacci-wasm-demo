@@ -5,91 +5,108 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
+	"math"
 	"net/http"
 	"syscall/js"
 	"time"
 )
 
-type Request struct {
-	Method string         `json:"method"`
-	Path   string         `json:"path"`
-	Body   map[string]any `json:"body"`
-	ID     string         `json:"id"`
+// Helper function to send error responses
+func sendErrorResponse(errorMsg string, id string, status int) {
+	responseJSON, _ := json.Marshal(map[string]any{
+		"status": status,
+		"body": map[string]any{
+			"error": errorMsg,
+		},
+		"id": id,
+	})
+
+	js.Global().Get("self").Call("postMessage", string(responseJSON))
 }
 
-type Response struct {
-	Status int            `json:"status"`
-	Body   map[string]any `json:"body"`
-	ID     string         `json:"id"`
+// Helper function to send success responses
+func sendSuccessResponse(body map[string]any, id string) {
+	responseJSON, _ := json.Marshal(map[string]any{
+		"status": http.StatusOK,
+		"body":   body,
+		"id":     id,
+	})
+
+	js.Global().Get("self").Call("postMessage", string(responseJSON))
 }
 
 func HandleMessage(this js.Value, args []js.Value) any {
 	if len(args) == 0 {
+		sendErrorResponse("No message provided", "unknown", http.StatusBadRequest)
 		return nil
 	}
 
-	var req Request
+	jsObj := args[0]
 
-	b := []byte(args[0].String())
-
-	if err := json.Unmarshal(b, &req); err != nil {
-		fmt.Printf("Error unmarshaling request: %v\n", err)
-
-		responseJSON, _ := json.Marshal(Response{
-			Status: http.StatusBadRequest,
-			Body: map[string]any{
-				"error": fmt.Sprintf("Invalid request format: %v", err),
-			},
-			ID: req.ID,
-		})
-
-		js.Global().Get("self").Call("postMessage", string(responseJSON))
-
+	if jsObj.Type() != js.TypeObject {
+		sendErrorResponse("Invalid message format: expected object", "unknown", http.StatusBadRequest)
 		return nil
 	}
 
-	responseJSON, _ := json.Marshal(
-		HandleRequest(req),
-	)
-
-	js.Global().Get("self").Call("postMessage", string(responseJSON))
-
-	return nil
-}
-
-func HandleRequest(req Request) Response {
-	if req.Method != http.MethodPost || req.Path != "/fibonacci" {
-		return Response{
-			Status: http.StatusNotFound,
-			Body: map[string]any{
-				"error": "Endpoint not found",
-			},
-			ID: req.ID,
-		}
+	idJS, requestID := jsObj.Get("id"), "unknown"
+	if !idJS.IsUndefined() && idJS.Type() == js.TypeString {
+		requestID = idJS.String()
 	}
 
-	val, ok := req.Body["n"].(float64)
-	n := int(val)
-
-	if !ok {
-		return Response{
-			Status: http.StatusBadRequest,
-			Body: map[string]any{
-				"error": "Invalid input: 'n' must be a number",
-			},
-			ID: req.ID,
-		}
+	methodJS, pathJS := jsObj.Get("method"), jsObj.Get("path")
+	if methodJS.IsUndefined() || pathJS.IsUndefined() || idJS.IsUndefined() {
+		sendErrorResponse("Missing required fields: method, path, or id", requestID, http.StatusBadRequest)
+		return nil
 	}
 
+	if methodJS.Type() != js.TypeString || pathJS.Type() != js.TypeString || idJS.Type() != js.TypeString {
+		sendErrorResponse("Invalid field types: method, path, and id must be strings", requestID, http.StatusBadRequest)
+		return nil
+	}
+
+	method, path := methodJS.String(), pathJS.String()
+	if method != http.MethodPost || path != "/fibonacci" {
+		sendErrorResponse("Endpoint not found", requestID, http.StatusNotFound)
+		return nil
+	}
+
+	bodyJS := jsObj.Get("body")
+	if bodyJS.IsUndefined() {
+		sendErrorResponse("Missing required field: body", requestID, http.StatusBadRequest)
+		return nil
+	}
+
+	if bodyJS.Type() != js.TypeObject {
+		sendErrorResponse("Invalid body format: expected object", requestID, http.StatusBadRequest)
+		return nil
+	}
+
+	nValue := bodyJS.Get("n")
+	if nValue.IsUndefined() {
+		sendErrorResponse("Missing required field 'n' in body", requestID, http.StatusBadRequest)
+		return nil
+	}
+
+	if nValue.Type() != js.TypeNumber {
+		sendErrorResponse("Invalid 'n' field: must be a number", requestID, http.StatusBadRequest)
+		return nil
+	}
+
+	nFloat := nValue.Float()
+	if math.IsNaN(nFloat) || math.IsInf(nFloat, 0) {
+		sendErrorResponse("Invalid 'n' field: cannot be NaN or infinity", requestID, http.StatusBadRequest)
+		return nil
+	}
+
+	if nFloat != math.Trunc(nFloat) {
+		sendErrorResponse("Invalid 'n' field: must be an integer", requestID, http.StatusBadRequest)
+		return nil
+	}
+
+	n := int(nFloat)
 	if n < 0 {
-		return Response{
-			Status: http.StatusBadRequest,
-			Body: map[string]any{
-				"error": "Input must be non-negative",
-			},
-			ID: req.ID,
-		}
+		sendErrorResponse("Input must be non-negative", requestID, http.StatusBadRequest)
+		return nil
 	}
 
 	startTime := time.Now()
@@ -100,13 +117,11 @@ func HandleRequest(req Request) Response {
 		stringSequence[i] = bigInt.String()
 	}
 
-	return Response{
-		Status: http.StatusOK,
-		Body: map[string]any{
-			"sequence":    stringSequence,
-			"count":       n,
-			"duration_ms": time.Since(startTime).Milliseconds(),
-		},
-		ID: req.ID,
-	}
+	sendSuccessResponse(map[string]any{
+		"sequence":    stringSequence,
+		"count":       n,
+		"duration_ms": time.Since(startTime).Milliseconds(),
+	}, requestID)
+
+	return nil
 }

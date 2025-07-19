@@ -13,7 +13,7 @@ class WorkerRouter {
 
     worker.onmessage = (event) => {
       console.log("Worker response received:", event.data);
-      let response = event.data;
+      const response = event.data;
 
       if (response.type === "ready") {
         console.log(`Worker ${serviceName} is ready`);
@@ -23,33 +23,27 @@ class WorkerRouter {
 
       if (response.type === "error") {
         console.error(`Worker ${serviceName} error:`, response);
-        return;
+        throw new Error(response.details || response.error);
       }
 
-      if (typeof response === "string") {
-        try {
-          response = JSON.parse(response);
-          console.log("Parsed JSON response:", response);
-        } catch (e) {
-          console.error("Failed to parse response:", e);
-          return;
-        }
-      }
+      const parsedResponse =
+        typeof response === "string" ? JSON.parse(response) : response;
+      console.log("Parsed response:", parsedResponse);
 
-      const requestId = response.id;
+      const { resolve } = this.pendingRequests.get(parsedResponse.id) || {};
 
-      if (this.pendingRequests.has(requestId)) {
-        const { resolve } = this.pendingRequests.get(requestId);
-        this.pendingRequests.delete(requestId);
-        console.log("Resolving request:", requestId);
-        resolve(response);
+      if (resolve) {
+        this.pendingRequests.delete(parsedResponse.id);
+        console.log("Resolving request:", parsedResponse.id);
+        resolve(parsedResponse);
       } else {
-        console.warn("No pending request found for ID:", requestId);
+        console.warn("No pending request found for ID:", parsedResponse.id);
       }
     };
 
     worker.onerror = (error) => {
       console.error(`Worker ${serviceName} error:`, error);
+      throw new Error(`Worker ${serviceName} error: ${error.message}`);
     };
 
     this.workers.set(serviceName, worker);
@@ -88,7 +82,7 @@ class WorkerRouter {
           this.pendingRequests.delete(requestId);
           reject(new Error("Request timeout"));
         }
-      }, 30000); // 30 second timeout for large calculations
+      }, 300000); // 5 minutes timeout for large calculations
     });
 
     worker.postMessage(request);
@@ -108,18 +102,75 @@ class WorkerRouter {
   }
 }
 
+class UIRenderer {
+  constructor() {
+    this.resultContainer = document.getElementById("result");
+  }
+
+  renderTemplate(templateId, data = {}) {
+    const template = document.getElementById(templateId);
+    let html = template.innerHTML;
+
+    // Simple template replacement
+    Object.entries(data).forEach(([key, value]) => {
+      html = html.replace(new RegExp(`{${key}}`, "g"), value);
+    });
+
+    this.resultContainer.innerHTML = html;
+  }
+
+  showLoading() {
+    this.renderTemplate("loading-template");
+  }
+
+  showSuccess(sequence, count, duration) {
+    this.renderTemplate("success-template", {
+      count,
+      duration,
+      sequence: JSON.stringify(sequence, null, 2),
+    });
+  }
+
+  showError(message) {
+    this.renderTemplate("error-template", { message });
+  }
+
+  clear() {
+    this.resultContainer.innerHTML = "";
+  }
+}
+
+class ErrorHandler {
+  static handle(error, ui) {
+    console.error("Application error:", error);
+
+    let message = "An unexpected error occurred";
+
+    if (error.message.includes("timeout")) {
+      message = "Calculation took too long - please try a smaller number";
+    } else if (error.message.includes("Worker")) {
+      message = "Failed to initialize calculator - please refresh the page";
+    } else if (error.message.includes("fetch")) {
+      message = "Failed to load calculator - check your internet connection";
+    } else if (error.message) {
+      message = error.message;
+    }
+
+    ui.showError(message);
+  }
+}
+
 class FibonacciApp {
   constructor() {
     this.router = new WorkerRouter();
+    this.ui = new UIRenderer();
     this.init();
   }
 
   async init() {
     this.router.registerWorker("fibonacci", "static/worker.js");
     this.setupEventListeners();
-
     document.getElementById("numberInput").focus();
-    console.log("Fibonacci WASM App initialized");
   }
 
   setupEventListeners() {
@@ -127,18 +178,17 @@ class FibonacciApp {
     const clearBtn = document.getElementById("clearBtn");
     const input = document.getElementById("numberInput");
 
-    // Form submission
     form.addEventListener("submit", (e) => {
       e.preventDefault();
       this.handleCalculation();
     });
 
-    // Clear button
     clearBtn.addEventListener("click", () => {
-      this.clearResults();
+      input.value = "";
+      this.ui.clear();
+      input.focus();
     });
 
-    // Enter key support
     input.addEventListener("keypress", (e) => {
       if (e.key === "Enter") {
         this.handleCalculation();
@@ -147,102 +197,30 @@ class FibonacciApp {
   }
 
   async handleCalculation() {
-    console.log("handleCalculation called");
-
     const input = document.getElementById("numberInput");
     const n = parseInt(input.value);
 
-    console.log("Input value:", input.value, "Parsed n:", n);
-
-    this.showLoading();
-
-    console.log("Sending request to worker:", { n });
-    console.log("Calling router.post with fibonacci service");
+    if (isNaN(n) || n < 0) {
+      this.ui.showError("Please enter a valid non-negative number");
+      return;
+    }
 
     try {
+      this.ui.showLoading();
+
       const startTime = performance.now();
       const response = await this.router.post("fibonacci", "/fibonacci", { n });
-      const endTime = performance.now();
-      const duration = Math.round(endTime - startTime);
-
-      console.log("Received response:", response);
+      const duration = Math.round(performance.now() - startTime);
 
       if (response.status === 200) {
-        this.showSuccess(response.body.sequence, n, duration);
+        this.ui.showSuccess(response.body.sequence, n, duration);
       } else {
-        this.showError(response.body.error);
+        this.ui.showError(response.body.error || "Calculation failed");
       }
     } catch (error) {
       console.error("Calculation error:", error);
-      this.showError(`Calculation failed: ${error.message}`);
+      ErrorHandler.handle(error, this.ui);
     }
-  }
-
-  clearResults() {
-    document.getElementById("numberInput").value = "";
-    document.getElementById("result").innerHTML = "";
-    document.getElementById("numberInput").focus();
-  }
-
-  showLoading() {
-    document.getElementById("result").innerHTML = `
-            <div class="card">
-                <div class="card-body text-center">
-                    <div class="spinner-border text-primary me-2 loading-spinner" role="status">
-                        <span class="visually-hidden">Loading...</span>
-                    </div>
-                    <span class="status-loading">Calculating Fibonacci sequence...</span>
-                </div>
-            </div>
-        `;
-  }
-
-  showSuccess(sequence, count, duration) {
-    document.getElementById("result").innerHTML = `
-            <div class="card">
-                <div class="card-header bg-success text-white">
-                    <h6 class="card-title mb-0">
-                        <i class="fas fa-check-circle me-2"></i>
-                        Fibonacci Sequence (first ${count} numbers)
-                        <small class="float-end">Calculated in ${duration}ms</small>
-                    </h6>
-                </div>
-                <div class="card-body">
-                    <div class="mb-3">
-                        <label class="form-label fw-bold">JSON Format:</label>
-                        <div class="json-display">
-                            ${JSON.stringify(sequence, null, 2)}
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="col-md-6">
-                            <small class="text-muted">
-                                <i class="fas fa-info-circle me-1"></i>
-                                Calculated using Go WebAssembly with arbitrary precision
-                            </small>
-                        </div>
-                        <div class="col-md-6 text-end">
-                            <small class="text-muted">
-                                <i class="fas fa-clock me-1"></i>
-                                Performance: ${duration}ms
-                            </small>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-  }
-
-  showError(message) {
-    document.getElementById("result").innerHTML = `
-            <div class="alert alert-danger" role="alert">
-                <h6 class="alert-heading">
-                    <i class="fas fa-exclamation-triangle me-2"></i>
-                    Error
-                </h6>
-                <p class="mb-0">${message}</p>
-            </div>
-        `;
   }
 }
 
