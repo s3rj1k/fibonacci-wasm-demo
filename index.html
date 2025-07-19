@@ -64,9 +64,14 @@
                                             class="form-control"
                                             placeholder="Enter n (e.g., 10)"
                                             min="0"
+                                            max="98"
                                             style="width: 180px"
                                             required
                                         />
+                                        <div class="form-text" id="inputHint">
+                                            Max: 98 (arbitrary precision
+                                            disabled)
+                                        </div>
                                     </div>
                                     <div class="col-auto">
                                         <button
@@ -89,13 +94,36 @@
                                         </button>
                                     </div>
                                 </div>
+
+                                <div class="row mt-3">
+                                    <div class="col-12">
+                                        <div class="form-check">
+                                            <input
+                                                class="form-check-input"
+                                                type="checkbox"
+                                                id="arbitraryPrecisionToggle"
+                                            />
+                                            <label
+                                                class="form-check-label"
+                                                for="arbitraryPrecisionToggle"
+                                                title="When enabled: Returns strings, supports unlimited size numbers. When disabled: Returns numbers, limited to n ≤ 98 for JavaScript safety"
+                                            >
+                                                <i
+                                                    class="fas fa-infinity me-1"
+                                                ></i>
+                                                Enable arbitrary precision
+                                                arithmetic
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
                             </form>
                         </div>
                     </div>
 
                     <div id="result" class="mt-4"></div>
 
-                    <div class="card mt-4">
+                    <div class="card mt-4 mb-5">
                         <div class="card-header">
                             <h6 class="card-title mb-0">
                                 <i class="fas fa-info-circle me-2"></i>
@@ -103,69 +131,51 @@
                             </h6>
                         </div>
                         <div class="card-body">
-                            <div class="alert alert-info mb-3">
-                                <small>
-                                    <i class="fas fa-info-circle me-1"></i>
-                                    <strong>Note:</strong> All numbers are
-                                    returned as strings to support arbitrary
-                                    precision arithmetic for very large
-                                    Fibonacci numbers.
-                                </small>
-                            </div>
                             <div class="row">
                                 <div class="col-md-6">
-                                    <h6>Valid Examples:</h6>
+                                    <h6>Standard Mode (n ≤ 98):</h6>
                                     <ul class="list-unstyled">
                                         <li>
                                             <span class="badge bg-primary me-2"
                                                 >n = 5</span
                                             >
-                                            → ["0", "1", "1", "2", "3"]
+                                            → [0, 1, 1, 2, 3]
                                         </li>
                                         <li>
                                             <span class="badge bg-primary me-2"
                                                 >n = 8</span
                                             >
-                                            → ["0", "1", "1", "2", "3", "5",
-                                            "8", "13"]
-                                        </li>
-                                        <li>
-                                            <span class="badge bg-primary me-2"
-                                                >n = 0</span
-                                            >
-                                            → []
-                                        </li>
-                                        <li>
-                                            <span class="badge bg-primary me-2"
-                                                >n = 1</span
-                                            >
-                                            → ["0"]
+                                            → [0, 1, 1, 2, 3, 5, 8, 13]
                                         </li>
                                     </ul>
                                 </div>
                                 <div class="col-md-6">
-                                    <h6>Error Cases:</h6>
+                                    <h6>Arbitrary Precision Mode:</h6>
                                     <ul class="list-unstyled">
                                         <li>
-                                            <span class="badge bg-danger me-2"
-                                                >n < 0</span
+                                            <span class="badge bg-success me-2"
+                                                >n = 5</span
                                             >
-                                            Negative numbers
+                                            → ["0", "1", "1", "2", "3"]
                                         </li>
                                         <li>
-                                            <span class="badge bg-warning me-2"
-                                                >text</span
+                                            <span class="badge bg-success me-2"
+                                                >n = 100+</span
                                             >
-                                            Non-numeric input
-                                        </li>
-                                        <li>
-                                            <span class="badge bg-warning me-2"
-                                                >empty</span
-                                            >
-                                            No input provided
+                                            Very large numbers supported
                                         </li>
                                     </ul>
                                 </div>
+                            </div>
+                            <div class="alert alert-info mt-3">
+                                <small>
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    <strong>Note:</strong> Return type depends
+                                    on arbitrary precision setting. With
+                                    arbitrary precision: all numbers returned as
+                                    strings. Without: regular JavaScript numbers
+                                    (limited precision).
+                                </small>
                             </div>
                         </div>
                     </div>
@@ -207,15 +217,14 @@
                 </div>
                 <div class="card-body">
                     <div class="mb-3">
-                        <label class="form-label fw-bold">JSON Format:</label>
+                        <label class="form-label fw-bold">Result:</label>
                         <div class="json-display">{sequence}</div>
                     </div>
                     <div class="row">
                         <div class="col-md-6">
                             <small class="text-muted">
                                 <i class="fas fa-info-circle me-1"></i>
-                                Calculated using Go WebAssembly with arbitrary
-                                precision
+                                Mode: {precision_mode}
                             </small>
                         </div>
                         <div class="col-md-6 text-end">

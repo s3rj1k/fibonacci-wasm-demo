@@ -123,10 +123,15 @@ class UIRenderer {
     this.renderTemplate("loading-template");
   }
 
-  showSuccess(sequence, count, duration) {
+  showSuccess(sequence, count, duration, arbitraryPrecision) {
+    const precisionMode = arbitraryPrecision
+      ? "Arbitrary Precision (strings)"
+      : "Standard JavaScript Numbers";
+
     this.renderTemplate("success-template", {
       count,
       duration,
+      precision_mode: precisionMode,
       sequence: JSON.stringify(sequence, null, 2),
     });
   }
@@ -177,6 +182,8 @@ class FibonacciApp {
     const form = document.getElementById("fibonacciForm");
     const clearBtn = document.getElementById("clearBtn");
     const input = document.getElementById("numberInput");
+    const arbitraryToggle = document.getElementById("arbitraryPrecisionToggle");
+    const inputHint = document.getElementById("inputHint");
 
     form.addEventListener("submit", (e) => {
       e.preventDefault();
@@ -194,10 +201,43 @@ class FibonacciApp {
         this.handleCalculation();
       }
     });
+
+    arbitraryToggle.addEventListener("change", () => {
+      this.updateInputLimits();
+    });
+
+    this.updateInputLimits();
+  }
+
+  updateInputLimits() {
+    const input = document.getElementById("numberInput");
+    const arbitraryToggle = document.getElementById("arbitraryPrecisionToggle");
+    const inputHint = document.getElementById("inputHint");
+
+    if (arbitraryToggle.checked) {
+      // Arbitrary precision mode - remove max limit
+      input.removeAttribute("max");
+      inputHint.textContent = "Unlimited (arbitrary precision enabled)";
+      inputHint.className = "form-text text-success";
+    } else {
+      // Standard mode - limit to 98
+      input.setAttribute("max", "98");
+      inputHint.textContent = "Max: 98 (arbitrary precision disabled)";
+      inputHint.className = "form-text text-muted";
+
+      // If current value exceeds 98, clear it
+      if (input.value && parseInt(input.value) > 98) {
+        input.value = "";
+        this.ui.showError(
+          "Input reduced to standard mode limit. Please enter a number ≤ 98 or enable arbitrary precision.",
+        );
+      }
+    }
   }
 
   async handleCalculation() {
     const input = document.getElementById("numberInput");
+    const arbitraryToggle = document.getElementById("arbitraryPrecisionToggle");
     const n = parseInt(input.value);
 
     if (isNaN(n) || n < 0) {
@@ -205,15 +245,30 @@ class FibonacciApp {
       return;
     }
 
+    if (!arbitraryToggle.checked && n > 98) {
+      this.ui.showError(
+        "In standard mode, maximum value is 98. Enable arbitrary precision for larger numbers.",
+      );
+      return;
+    }
+
     try {
       this.ui.showLoading();
 
       const startTime = performance.now();
-      const response = await this.router.post("fibonacci", "/fibonacci", { n });
+      const response = await this.router.post("fibonacci", "/fibonacci", {
+        n: n,
+        arbitrary_precision: arbitraryToggle.checked,
+      });
       const duration = Math.round(performance.now() - startTime);
 
       if (response.status === 200) {
-        this.ui.showSuccess(response.body.sequence, n, duration);
+        this.ui.showSuccess(
+          response.body.sequence,
+          n,
+          duration,
+          arbitraryToggle.checked,
+        );
       } else {
         this.ui.showError(response.body.error || "Calculation failed");
       }

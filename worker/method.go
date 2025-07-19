@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"math"
 	"net/http"
+	"strconv"
 	"syscall/js"
 	"time"
 )
@@ -109,19 +110,56 @@ func HandleMessage(this js.Value, args []js.Value) any {
 		return nil
 	}
 
+	arbitraryPrecisionJS, arbitraryPrecision := bodyJS.Get("arbitrary_precision"), false
+	if !arbitraryPrecisionJS.IsUndefined() && arbitraryPrecisionJS.Type() == js.TypeBoolean {
+		arbitraryPrecision = arbitraryPrecisionJS.Bool()
+	}
+
+	if !arbitraryPrecision && n > 98 {
+		sendErrorResponse("Input exceeds JavaScript safe limit (98) for standard precision mode", requestID, http.StatusBadRequest)
+		return nil
+	}
+
 	startTime := time.Now()
 	fibSequence := GenerateFibonacci(n)
 
-	stringSequence := make([]string, len(fibSequence))
-	for i, bigInt := range fibSequence {
-		stringSequence[i] = bigInt.String()
+	var responseBody map[string]any
+
+	if arbitraryPrecision {
+		// Return as strings for arbitrary precision
+		stringSequence := make([]string, len(fibSequence))
+		for i, bigInt := range fibSequence {
+			stringSequence[i] = bigInt.String()
+		}
+
+		responseBody = map[string]any{
+			"sequence":            stringSequence,
+			"count":               n,
+			"duration_ms":         time.Since(startTime).Milliseconds(),
+			"arbitrary_precision": true,
+		}
+	} else {
+		// Return as numbers for standard JavaScript precision
+		numberSequence := make([]float64, len(fibSequence))
+		for i, bigInt := range fibSequence {
+			// Convert to float64 for JavaScript compatibility
+			if floatVal, err := strconv.ParseFloat(bigInt.String(), 64); err == nil {
+				numberSequence[i] = floatVal
+			} else {
+				// This shouldn't happen with n <= 98, but just in case
+				sendErrorResponse("Number too large for standard precision mode", requestID, http.StatusBadRequest)
+				return nil
+			}
+		}
+
+		responseBody = map[string]any{
+			"sequence":            numberSequence,
+			"count":               n,
+			"duration_ms":         time.Since(startTime).Milliseconds(),
+			"arbitrary_precision": false,
+		}
 	}
 
-	sendSuccessResponse(map[string]any{
-		"sequence":    stringSequence,
-		"count":       n,
-		"duration_ms": time.Since(startTime).Milliseconds(),
-	}, requestID)
-
+	sendSuccessResponse(responseBody, requestID)
 	return nil
 }
